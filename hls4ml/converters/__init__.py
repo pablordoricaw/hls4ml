@@ -17,35 +17,42 @@ from hls4ml.converters.pytorch_to_hls import (  # noqa: F401
     pytorch_to_hls,
     register_pytorch_layer_handler,
 )
+from hls4ml.converters.flax_to_hls import flax_to_hls, register_flax_layer_handler
 from hls4ml.model import ModelGraph
 from hls4ml.utils.config import create_config
 from hls4ml.utils.dependency import requires
 from hls4ml.utils.symbolic_utils import LUTFunction
 
 # ----------Layer handling register----------#
-model_types = ['keras', 'pytorch', 'onnx']
+model_types = ["keras", "pytorch", "onnx", "flax"]
 
 for model_type in model_types:
-    for module in os.listdir(os.path.dirname(__file__) + f'/{model_type}'):
-        if module == '__init__.py' or module[-3:] != '.py':
+    for module in os.listdir(os.path.dirname(__file__) + f"/{model_type}"):
+        if module == "__init__.py" or module[-3:] != ".py":
             continue
         try:
-            lib = importlib.import_module(__name__ + f'.{model_type}.' + module[:-3])
+            lib = importlib.import_module(__name__ + f".{model_type}." + module[:-3])
             for _, func in list(lib.__dict__.items()):
                 # if 'func' is callable (i.e., function, class...)
                 # and has 'handles' attribute
                 # and is defined in this module (i.e., not imported)
-                if callable(func) and hasattr(func, 'handles') and func.__module__ == lib.__name__:
+                if (
+                    callable(func)
+                    and hasattr(func, "handles")
+                    and func.__module__ == lib.__name__
+                ):
                     for layer in func.handles:  # type: ignore
-                        if model_type == 'keras':
+                        if model_type == "keras":
                             register_keras_layer_handler(layer, func)
-                        elif model_type == 'pytorch':
+                        elif model_type == "pytorch":
                             register_pytorch_layer_handler(layer, func)
-                        elif model_type == 'onnx':
+                        elif model_type == "onnx":
                             register_onnx_layer_handler(layer, func)
+                        elif model_type == "flax":
+                            register_flax_layer_handler(layer, func)
 
         except ImportError as err:
-            print(f'WARNING: Failed to import handlers from {module}: {err.msg}.')
+            print(f"WARNING: Failed to import handlers from {module}: {err.msg}.")
             continue
 
 
@@ -83,9 +90,9 @@ def parse_yaml_config(config_file):
 
         return keras.models.load_model(model_str)
 
-    yaml.add_constructor('!keras_model', construct_keras_model, Loader=yaml.SafeLoader)
+    yaml.add_constructor("!keras_model", construct_keras_model, Loader=yaml.SafeLoader)
 
-    print('Loading configuration from', config_file)
+    print("Loading configuration from", config_file)
     with open(config_file) as file:
         parsed_config = yaml.safe_load(file)
     return parsed_config
@@ -108,10 +115,12 @@ def convert_from_config(config):
         yamlConfig = config
 
     model = None
-    if 'OnnxModel' in yamlConfig:
+    if "OnnxModel" in yamlConfig:
         model = onnx_to_hls(yamlConfig)
-    elif 'PytorchModel' in yamlConfig:
+    elif "PytorchModel" in yamlConfig:
         model = pytorch_to_hls(yamlConfig)
+    elif "FlaxModel" in yamlConfig:
+        model = flax_to_hls(yamlConfig)
     else:
         model = keras_to_hls(yamlConfig)
 
@@ -123,44 +132,46 @@ def _check_hls_config(config, hls_config):
     Check hls_config for to set appropriate parameters for config.
     """
 
-    if 'LayerName' in hls_config:
-        config['HLSConfig']['LayerName'] = hls_config['LayerName']
+    if "LayerName" in hls_config:
+        config["HLSConfig"]["LayerName"] = hls_config["LayerName"]
 
-    if 'LayerType' in hls_config:
-        config['HLSConfig']['LayerType'] = hls_config['LayerType']
+    if "LayerType" in hls_config:
+        config["HLSConfig"]["LayerType"] = hls_config["LayerType"]
 
-    if 'Flows' in hls_config:
-        config['HLSConfig']['Flows'] = hls_config['Flows']
+    if "Flows" in hls_config:
+        config["HLSConfig"]["Flows"] = hls_config["Flows"]
 
-    if 'Optimizers' in hls_config:
-        config['HLSConfig']['Optimizers'] = hls_config['Optimizers']
+    if "Optimizers" in hls_config:
+        config["HLSConfig"]["Optimizers"] = hls_config["Optimizers"]
 
-    if 'SkipOptimizers' in hls_config:
-        config['HLSConfig']['SkipOptimizers'] = hls_config['SkipOptimizers']
+    if "SkipOptimizers" in hls_config:
+        config["HLSConfig"]["SkipOptimizers"] = hls_config["SkipOptimizers"]
 
     return
 
 
 def _check_model_config(model_config):
     if model_config is not None:
-        if not all(k in model_config for k in ('Precision', 'ReuseFactor')):
-            raise Exception('Precision and ReuseFactor must be provided in the hls_config')
+        if not all(k in model_config for k in ("Precision", "ReuseFactor")):
+            raise Exception(
+                "Precision and ReuseFactor must be provided in the hls_config"
+            )
     else:
         model_config = {}
-        model_config['Precision'] = 'ap_fixed<16,6>'
-        model_config['ReuseFactor'] = 1
+        model_config["Precision"] = "ap_fixed<16,6>"
+        model_config["ReuseFactor"] = 1
 
     return model_config
 
 
-@requires('_keras')
+@requires("_keras")
 def convert_from_keras_model(
     model,
-    output_dir='my-hls-test',
-    project_name='myproject',
+    output_dir="my-hls-test",
+    project_name="myproject",
     input_data_tb=None,
     output_data_tb=None,
-    backend='Vivado',
+    backend="Vivado",
     hls_config=None,
     **kwargs,
 ):
@@ -199,32 +210,34 @@ def convert_from_keras_model(
         ModelGraph: hls4ml model.
     """
 
-    config = create_config(output_dir=output_dir, project_name=project_name, backend=backend, **kwargs)
+    config = create_config(
+        output_dir=output_dir, project_name=project_name, backend=backend, **kwargs
+    )
 
-    config['KerasModel'] = model
-    config['InputData'] = input_data_tb
-    config['OutputPredictions'] = output_data_tb
-    config['HLSConfig'] = {}
+    config["KerasModel"] = model
+    config["InputData"] = input_data_tb
+    config["OutputPredictions"] = output_data_tb
+    config["HLSConfig"] = {}
 
     if hls_config is None:
         hls_config = {}
 
-    model_config = hls_config.get('Model', None)
-    config['HLSConfig']['Model'] = _check_model_config(model_config)
+    model_config = hls_config.get("Model", None)
+    config["HLSConfig"]["Model"] = _check_model_config(model_config)
 
     _check_hls_config(config, hls_config)
 
     return keras_to_hls(config)
 
 
-@requires('_torch')
+@requires("_torch")
 def convert_from_pytorch_model(
     model,
-    output_dir='my-hls-test',
-    project_name='myproject',
+    output_dir="my-hls-test",
+    project_name="myproject",
     input_data_tb=None,
     output_data_tb=None,
-    backend='Vivado',
+    backend="Vivado",
     hls_config=None,
     **kwargs,
 ):
@@ -271,32 +284,34 @@ def convert_from_pytorch_model(
         ModelGraph: hls4ml model.
     """
 
-    config = create_config(output_dir=output_dir, project_name=project_name, backend=backend, **kwargs)
+    config = create_config(
+        output_dir=output_dir, project_name=project_name, backend=backend, **kwargs
+    )
 
-    config['PytorchModel'] = model
-    config['InputData'] = input_data_tb
-    config['OutputPredictions'] = output_data_tb
-    config['HLSConfig'] = {}
+    config["PytorchModel"] = model
+    config["InputData"] = input_data_tb
+    config["OutputPredictions"] = output_data_tb
+    config["HLSConfig"] = {}
 
     if hls_config is None:
         hls_config = {}
 
-    model_config = hls_config.get('Model')
-    config['HLSConfig']['Model'] = _check_model_config(model_config)
-    config['InputShape'] = hls_config.get('InputShape')
+    model_config = hls_config.get("Model")
+    config["HLSConfig"]["Model"] = _check_model_config(model_config)
+    config["InputShape"] = hls_config.get("InputShape")
     _check_hls_config(config, hls_config)
 
     return pytorch_to_hls(config)
 
 
-@requires('onnx')
+@requires("onnx")
 def convert_from_onnx_model(
     model,
-    output_dir='my-hls-test',
-    project_name='myproject',
+    output_dir="my-hls-test",
+    project_name="myproject",
     input_data_tb=None,
     output_data_tb=None,
-    backend='Vivado',
+    backend="Vivado",
     hls_config=None,
     **kwargs,
 ):
@@ -335,35 +350,37 @@ def convert_from_onnx_model(
         ModelGraph: hls4ml model.
     """
 
-    config = create_config(output_dir=output_dir, project_name=project_name, backend=backend, **kwargs)
+    config = create_config(
+        output_dir=output_dir, project_name=project_name, backend=backend, **kwargs
+    )
 
-    config['OnnxModel'] = model
-    config['InputData'] = input_data_tb
-    config['OutputPredictions'] = output_data_tb
-    config['HLSConfig'] = {}
+    config["OnnxModel"] = model
+    config["InputData"] = input_data_tb
+    config["OutputPredictions"] = output_data_tb
+    config["HLSConfig"] = {}
 
     if hls_config is None:
         hls_config = {}
 
-    model_config = hls_config.get('Model', None)
-    config['HLSConfig']['Model'] = _check_model_config(model_config)
+    model_config = hls_config.get("Model", None)
+    config["HLSConfig"]["Model"] = _check_model_config(model_config)
 
     _check_hls_config(config, hls_config)
 
     return onnx_to_hls(config)
 
 
-@requires('sr')
+@requires("sr")
 def convert_from_symbolic_expression(
     expr,
     n_symbols=None,
     lut_functions=None,
     use_built_in_lut_functions=False,
-    output_dir='my-hls-test',
-    project_name='myproject',
+    output_dir="my-hls-test",
+    project_name="myproject",
     input_data_tb=None,
     output_data_tb=None,
-    precision='ap_fixed<16,6>',
+    precision="ap_fixed<16,6>",
     **kwargs,
 ):
     """Converts a given (SymPy or string) expression to hls4ml model.
@@ -425,7 +442,7 @@ def convert_from_symbolic_expression(
     if n_symbols is None:
         n_symbols = 0
         for e in expr:
-            symbols = max([int(d.name.replace('x', '')) for d in e.free_symbols]) + 1
+            symbols = max([int(d.name.replace("x", "")) for d in e.free_symbols]) + 1
             if symbols > n_symbols:
                 n_symbols = symbols
 
@@ -434,36 +451,110 @@ def convert_from_symbolic_expression(
     else:
         if isinstance(lut_functions, dict):
             lut_functions = [
-                LUTFunction(name, params['math_func'], params['range_start'], params['range_end'], params['table_size'])
+                LUTFunction(
+                    name,
+                    params["math_func"],
+                    params["range_start"],
+                    params["range_end"],
+                    params["table_size"],
+                )
                 for name, params in lut_functions.items()
             ]
 
     layer_list = []
 
     input_layer = {}
-    input_layer['name'] = 'x'
-    input_layer['class_name'] = 'InputLayer'
-    input_layer['input_shape'] = [n_symbols]
+    input_layer["name"] = "x"
+    input_layer["class_name"] = "InputLayer"
+    input_layer["input_shape"] = [n_symbols]
     layer_list.append(input_layer)
 
     expr_layer = {}
-    expr_layer['name'] = 'expr1'
-    expr_layer['class_name'] = 'SymbolicExpression'
-    expr_layer['expression'] = [str(e) for e in expr]
-    expr_layer['n_symbols'] = n_symbols
-    expr_layer['lut_functions'] = lut_functions
-    expr_layer['use_built_in_luts'] = use_built_in_lut_functions
+    expr_layer["name"] = "expr1"
+    expr_layer["class_name"] = "SymbolicExpression"
+    expr_layer["expression"] = [str(e) for e in expr]
+    expr_layer["n_symbols"] = n_symbols
+    expr_layer["lut_functions"] = lut_functions
+    expr_layer["use_built_in_luts"] = use_built_in_lut_functions
     layer_list.append(expr_layer)
 
-    config = create_config(output_dir=output_dir, project_name=project_name, backend='SymbolicExpression', **kwargs)
+    config = create_config(
+        output_dir=output_dir,
+        project_name=project_name,
+        backend="SymbolicExpression",
+        **kwargs,
+    )
 
     # config['Expression'] = str(expr)
-    config['NSymbols'] = n_symbols
-    config['InputData'] = input_data_tb
-    config['OutputPredictions'] = output_data_tb
+    config["NSymbols"] = n_symbols
+    config["InputData"] = input_data_tb
+    config["OutputPredictions"] = output_data_tb
 
-    config['HLSConfig'] = {'Model': {'Precision': precision, 'ReuseFactor': 1}}
+    config["HLSConfig"] = {"Model": {"Precision": precision, "ReuseFactor": 1}}
 
     hls_model = ModelGraph(config, layer_list)
 
     return hls_model
+
+
+@requires("_flax")  # why _flax instead of flax?
+def convert_from_flax_model(
+    model,
+    output_dir="my-hls-test",
+    project_name="myproject",
+    input_data_tb=None,
+    output_data_tb=None,
+    backend="Vivado",
+    hls_config=None,
+    **kwargs,
+):
+    """Convert Flax model to hls4ml model based on the provided configuration.
+
+    Args:
+        model: Flax model to convert.
+        output_dir (str, optional): Output directory of the generated HLS
+            project. Defaults to 'my-hls-test'.
+        project_name (str, optional): Name of the HLS project.
+            Defaults to 'myproject'.
+        input_data_tb (str, optional): String representing the path of input data in .npy or .dat format that will be
+            used during csim and cosim.
+        output_data_tb (str, optional): String representing the path of output data in .npy or .dat format that will be
+            used during csim and cosim.
+        backend (str, optional): Name of the backend to use, e.g., 'Vivado'
+            or 'Quartus' or 'Catapult'.
+        board (str, optional): One of target boards specified in `supported_board.json` file. If set to `None` a default
+            device of a backend will be used. See documentation of the backend used.
+        part (str, optional): The FPGA part. If set to `None` a default part of a backend will be used.
+            See documentation of the backend used. Note that if `board` is specified, the part associated to that board
+            will overwrite any part passed as a parameter.
+        clock_period (int, optional): Clock period of the design.
+            Defaults to 5.
+        clock_uncertainty (str, optional): Clock uncertainty
+            Defaults to 12.5% for Vivado HLS, 27% for Vitis HLS; unused for others
+        io_type (str, optional): Type of implementation used. One of
+            'io_parallel' or 'io_stream'. Defaults to 'io_parallel'.
+        hls_config (dict, optional): The HLS config.
+        kwargs** (dict, optional): Additional parameters that will be used to create the config of the specified backend
+
+    Raises:
+        Exception: If precision and reuse factor are not present in 'hls_config'.
+
+    Returns:
+        ModelGraph: hls4ml model.
+    """
+    config = create_config(
+        output_dir=output_dir, project_name=project_name, backend=backend, **kwargs
+    )
+    config["FlaxModel"] = model
+    config["InputData"] = input_data_tb
+    config["OutputPredictions"] = output_data_tb
+    config["HLSConfig"] = {}
+
+    if hls_config is None:
+        hls_config = {}
+
+    model_config = hls_config.get("Model", None)
+    config["HLSConfig"]["Model"] = _check_model_config(model_config)
+    _check_hls_config(config, hls_config)
+
+    return flax_to_hls(config)
