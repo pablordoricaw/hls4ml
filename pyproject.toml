@@ -58,6 +58,7 @@ optional-dependencies.testing = [
   "qonnx",
   "tabulate",
   "torch",
+  "flax >= 0.10.5"
 ]
 urls.Homepage = "https://fastmachinelearning.org/hls4ml"
 scripts.hls4ml = "hls4ml.cli:main"
