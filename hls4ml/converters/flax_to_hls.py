@@ -151,7 +151,7 @@ def parse_flax_model(config, verbose=True):
             layer_name = str(idx)  # in an nnx.Sequential model correspond to the idx
             previous_layer = model.layers[idx - 1]
             if layer_type in activation_layers:
-                input_shapes = [[None, previous_layer.in_features]]
+                input_shapes = [[None, previous_layer.out_features]]
             else:
                 input_shapes = [[None, layer.in_features]]
 
@@ -163,16 +163,22 @@ def parse_flax_model(config, verbose=True):
             layer, output_shape = layer_handlers[layer_type](
                 layer_name, layer, input_names, input_shapes, reader
             )
-            layer_list.append(layer)
-
             if verbose:
                 print(
-                    "Layer name: {}, layer type: {}, input shape: {}".format(
-                        layer["name"],
-                        layer["class_name"],
-                        input_shapes,
+                    'Layer name: _{}, layer type: {}, input shapes: {}, output shape: {}'.format(
+                        layer['name'], layer['class_name'], input_shapes, output_shape
                     )
                 )
+            layer_list.append(layer)
+
+        for layer in layer_list:
+            if layer["class_name"] != "InputLayer":
+                layer["name"] = f"_{layer['name']}"
+                if "inputs" in layer.keys():
+                    _inputs = [] 
+                    for in_layer in layer["inputs"]:
+                        _inputs.append(f"_{in_layer}")
+                    layer["inputs"] = _inputs
 
         output_layers = [str(len(model.layers) - 1)]
     else:
