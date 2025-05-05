@@ -1,7 +1,6 @@
 from hls4ml.converters.flax_to_hls import (
     get_weights_data,
     flax_handler,
-    parse_default_flax_layer,
 )
 
 
@@ -29,12 +28,28 @@ def parse_linear_layer(layer_name, flax_layer, input_names, input_shapes, data_r
     return layer, output_shape
 
 
-activation_layers = ["ReLU"]
+activation_layers = ["ReLU", "Sigmoid"]
 
 
 @flax_handler(*activation_layers)
-def parse_activation_layer():
+def parse_activation_layer(
+    layer_name, flax_layer, input_names, input_shapes, data_reader
+):
+    layer_type = flax_layer.__class__.__name__
+    assert layer_type in activation_layers, (
+        f"ERROR: Unsupported activation layer {layer_type}"
+    )
     layer = {}
     output_shape = []
+
+    layer["class_name"] = layer_type
+    layer["activation"] = layer["class_name"].lower()
+    layer["name"] = layer_name
+    layer["inputs"] = input_names
+
+    if layer["class_name"] in ["ReLU", "Sigmoid", "Tanh"]:
+        layer["class_name"] = "Activation"
+
+    output_shape = input_shapes[0]
 
     return layer, output_shape
