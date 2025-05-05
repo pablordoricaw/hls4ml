@@ -171,6 +171,8 @@ def parse_flax_model(config, verbose=True):
                 )
             layer_list.append(layer)
 
+        # to convert to cpp HLS, layer names can't start with a number
+        # so append '_' 
         for layer in layer_list:
             if layer["class_name"] != "InputLayer":
                 layer["name"] = f"_{layer['name']}"
@@ -179,8 +181,10 @@ def parse_flax_model(config, verbose=True):
                     for in_layer in layer["inputs"]:
                         _inputs.append(f"_{in_layer}")
                     layer["inputs"] = _inputs
+            else:
+                input_layers = [layer["name"]]
 
-        output_layers = [str(len(model.layers) - 1)]
+        output_layers = [f"_{str(len(model.layers) - 1)}"]
     else:
         raise Exception(
             "ERROR: Unsupported Flax model. Model needs to be an nnx.Sequential() model"
