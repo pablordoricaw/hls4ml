@@ -13,8 +13,6 @@ class FlaxReader:
 class FlaxModelReader(FlaxReader):
     def __init__(self, flax_model):
         # flax_model contains both the model graph and weights and biases
-        # Could keep the state separate like the PyTorchModelReader or
-        # keep in one like the KerasModelReader.
         # Need to use Flax funcs to get the model weights and biases
         self.model = flax_model
 
@@ -179,7 +177,7 @@ def parse_flax_model(config, verbose=True):
         output_layers = [str(len(model.layers) - 1)]
     else:
         raise Exception(
-            "ERROR: Unsupported Flax NNX model. Model needs to be an nnx.Sequential() model"
+            "ERROR: Unsupported Flax model. Model needs to be an nnx.Sequential() model"
         )
 
     return layer_list, input_layers, output_layers
