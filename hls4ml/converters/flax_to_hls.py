@@ -2,6 +2,7 @@ import numpy as np
 from flax import nnx
 
 from hls4ml.model import ModelGraph
+from hls4ml.utils.dependency import requires
 
 
 class FlaxReader:
@@ -29,6 +30,7 @@ class FlaxModelReader(FlaxReader):
 
         if isinstance(self.model, nnx.Sequential):
             model_params = model_params.layers
+            layer_name = int(layer_name)
 
         if layer_name in model_params.keys():
             data = model_params[layer_name][var_name].value
@@ -41,7 +43,7 @@ def get_weights_data(data_reader, layer_name, var_name):
     """
     Extract the weights and bias from a Flax layer using the get_weights_data() method from the data_reader.
 
-    The var_name parameter is the 'bias', and 'kernel' for weights in a Flax layer.
+    The var_name parameter is a list with 'bias', and 'kernel' for weights in a Flax layer.
 
     This function is called by the Flax layer handlers.
     """
@@ -110,40 +112,84 @@ def parse_default_flax_layer(flax_layer, input_names):
     return layer
 
 
-def get_model_arch(config):
-    if "FlaxModel" in config:
-        flax_model = config["FlaxModel"]
-        model_arch = nnx.graphdef(flax_model)
-        reader = FlaxModelReader(flax_model)
-    else:
-        raise ValueError("No model found in config file.")
+def parse_flax_model(config, verbose=True):
+    model = config["FlaxModel"]
+    reader = FlaxModelReader(model)
 
-    return model_arch, reader
-
-
-def parse_flax_model(model_arch, reader):
     # This is a list of dictionaries to hold all the layer info we need to generate HLS
     layer_list = []
-
     skip_layers = []
+
     supported_layers = get_supported_flax_layers() + skip_layers
 
-    # Traverse through all layers and check they all are supported
+    activation_layers = ["ReLU", "Sigmoid"]
 
-    # Traverse through layers
-    #   Parse each layer with corresponding layer handler
-    #   Append parsed layer to layer_list
+    input_layers = None
+    output_layers = None
 
-    #   layer, output_shape = layer_handlers[flax_class](
-    #       flax_class, layer_name, input_shapes, node, class_object, reader, config
-    #   )
-    #   layer_list.append(layer)
+    if isinstance(model, nnx.Sequential):
+        print("Interpreting nnx.Sequential")
+
+        layer_list.append(
+            {
+                "class_name": "InputLayer",
+                "name": "dense_input",
+                "data_format": "channels_last",
+                "input_shape": [model.layers[0].in_features],
+            }
+        )
+
+        for layer in model.layers:
+            layer_type = layer.__class__.__name__
+            if layer_type.lower() not in list(map(str.lower, supported_layers)):
+                raise Exception(f"ERROR: Unsupported layer type: {layer_type}")
+
+        if verbose:
+            print("Topology:")
+        for idx, layer in enumerate(model.layers):
+            # case matters for layer_handler call below
+            layer_type = layer.__class__.__name__
+
+            layer_name = str(idx)  # in an nnx.Sequential model correspond to the idx
+            previous_layer = model.layers[idx - 1]
+            if layer_type in activation_layers:
+                input_shapes = [[None, previous_layer.in_features]]
+            else:
+                input_shapes = [[None, layer.in_features]]
+
+            if idx <= 0:
+                input_names = []
+            else:
+                input_names = [str(idx - 1)]
+
+            layer, output_shape = layer_handlers[layer_type](
+                layer_name, layer, input_names, input_shapes, reader
+            )
+            layer_list.append(layer)
+
+            if verbose:
+                print(
+                    "Layer name: {}, layer type: {}, input shape: {}".format(
+                        layer["name"],
+                        layer["class_name"],
+                        input_shapes,
+                    )
+                )
+
+        output_layers = [str(len(model.layers) - 1)]
+    else:
+        raise Exception(
+            "ERROR: Unsupported Flax NNX model. Model needs to be an nnx.Sequential() model"
+        )
+
+    return layer_list, input_layers, output_layers
 
 
+@requires("_flax")
 def flax_to_hls(config):
-    model_arch, reader = get_model_arch(config)
-    print(f"Model arch:\n{model_arch}")
-    layer_list, input_layers, output_layers, _ = parse_flax_model(model_arch, reader)
+    layer_list, input_layers, output_layers = parse_flax_model(config)
     print("Creating HLS model")
-    hls_model = ModelGraph(config, layer_list, input_layers, output_layers)
+    hls_model = ModelGraph(
+        config, layer_list, inputs=input_layers, outputs=output_layers
+    )
     return hls_model
