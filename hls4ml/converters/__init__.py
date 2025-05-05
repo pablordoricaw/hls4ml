@@ -9,15 +9,21 @@ from hls4ml.converters.keras_to_hls import KerasReader  # noqa: F401
 from hls4ml.converters.keras_to_hls import get_supported_keras_layers  # noqa: F401
 from hls4ml.converters.keras_to_hls import parse_keras_model  # noqa: F401
 from hls4ml.converters.keras_to_hls import keras_to_hls, register_keras_layer_handler
+
 from hls4ml.converters.onnx_to_hls import get_supported_onnx_layers  # noqa: F401
 from hls4ml.converters.onnx_to_hls import parse_onnx_model  # noqa: F401
 from hls4ml.converters.onnx_to_hls import onnx_to_hls, register_onnx_layer_handler
-from hls4ml.converters.pytorch_to_hls import (  # noqa: F401
-    get_supported_pytorch_layers,
-    pytorch_to_hls,
-    register_pytorch_layer_handler,
-)
-from hls4ml.converters.flax_to_hls import flax_to_hls, register_flax_layer_handler
+
+from hls4ml.converters.pytorch_to_hls import get_supported_pytorch_layers  # noqa: F401
+from hls4ml.converters.pytorch_to_hls import pytorch_to_hls
+from hls4ml.converters.pytorch_to_hls import register_pytorch_layer_handler
+from hls4ml.converters.pytorch_to_hls import parse_pytorch_model
+
+from hls4ml.converters.flax_to_hls import get_supported_flax_layers
+from hls4ml.converters.flax_to_hls import flax_to_hls
+from hls4ml.converters.flax_to_hls import register_flax_layer_handler
+from hls4ml.converters.flax_to_hls import parse_flax_model
+
 from hls4ml.model import ModelGraph
 from hls4ml.utils.config import create_config
 from hls4ml.utils.dependency import requires
