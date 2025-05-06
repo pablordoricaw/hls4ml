@@ -50,6 +50,12 @@ def parse_activation_layer(
     if layer["class_name"] in activation_layers:
         layer["class_name"] = "Activation"
 
+    if layer["class_name"] == "Activation" and layer["activation"] == "softmax":
+        layer["class_name"] = "Softmax"
+
+    if layer["class_name"] == "Softmax":
+        layer["axis"] = -1
+
     output_shape = input_shapes[0]
 
     return layer, output_shape
