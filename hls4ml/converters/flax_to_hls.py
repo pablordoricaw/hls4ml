@@ -120,7 +120,7 @@ def parse_flax_model(config, verbose=True):
 
     supported_layers = get_supported_flax_layers() + skip_layers
 
-    activation_layers = ["ReLU", "Sigmoid"]
+    activation_layers = ["ReLU", "Sigmoid", "Softmax"]
 
     input_layers = None
     output_layers = None
@@ -165,19 +165,19 @@ def parse_flax_model(config, verbose=True):
             )
             if verbose:
                 print(
-                    'Layer name: _{}, layer type: {}, input shapes: {}, output shape: {}'.format(
-                        layer['name'], layer['class_name'], input_shapes, output_shape
+                    "Layer name: _{}, layer type: {}, input shapes: {}, output shape: {}".format(
+                        layer["name"], layer["class_name"], input_shapes, output_shape
                     )
                 )
             layer_list.append(layer)
 
         # to convert to cpp HLS, layer names can't start with a number
-        # so append '_' 
+        # so append '_'
         for layer in layer_list:
             if layer["class_name"] != "InputLayer":
                 layer["name"] = f"_{layer['name']}"
                 if "inputs" in layer.keys():
-                    _inputs = [] 
+                    _inputs = []
                     for in_layer in layer["inputs"]:
                         _inputs.append(f"_{in_layer}")
                     layer["inputs"] = _inputs

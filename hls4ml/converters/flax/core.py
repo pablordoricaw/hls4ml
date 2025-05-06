@@ -28,7 +28,7 @@ def parse_linear_layer(layer_name, flax_layer, input_names, input_shapes, data_r
     return layer, output_shape
 
 
-activation_layers = ["ReLU", "Sigmoid"]
+activation_layers = ["ReLU", "Sigmoid", "Softmax"]
 
 
 @flax_handler(*activation_layers)
@@ -47,7 +47,7 @@ def parse_activation_layer(
     layer["name"] = layer_name
     layer["inputs"] = input_names
 
-    if layer["class_name"] in ["ReLU", "Sigmoid", "Tanh"]:
+    if layer["class_name"] in activation_layers:
         layer["class_name"] = "Activation"
 
     output_shape = input_shapes[0]
