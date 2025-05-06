@@ -504,7 +504,7 @@ def convert_from_symbolic_expression(
     return hls_model
 
 
-@requires("_flax")  # why _flax instead of flax?
+@requires("_flax")
 def convert_from_flax_model(
     model,
     output_dir="my-hls-test",
